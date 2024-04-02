@@ -1,6 +1,6 @@
 Create Processing-like sketches in Unity.
 
-Most made for fun, and very incomplete!
+Mostly made for fun and very incomplete!
 
 ## ⚠️ Requires Shapes ⚠️
 For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
