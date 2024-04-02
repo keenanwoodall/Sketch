@@ -1,5 +1,19 @@
 Create Processing-like sketches in Unity
 
+## ⚠️ Requires Shapes ⚠️
+For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
+
+TODO:
+- Get/Set pixels
+- Integrated recorder
+- Multiple canvases
+- Audio
+- 3D mode
+- Custom rendering backend
+- Hot reloading
+- Runtime code editing
+- GUI
+
 ### Examples
 
 Hello Circle
@@ -193,18 +207,3 @@ protected override void OnDraw()
     }
 }
 ```
-
-
-TODO:
-- Get/Set pixels
-- Integrated recorder
-- Multiple canvases
-- Audio
-- 3D mode
-- Custom rendering backend
-- Hot reloading
-- Runtime code editing
-- GUI
-
-## ⚠️ Requires Shapes ⚠️
-For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
