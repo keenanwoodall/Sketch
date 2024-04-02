@@ -3,7 +3,9 @@ Create Processing-like sketches in Unity
 ### Examples
 
 Hello Circle
+
 ![image](https://github.com/keenanwoodall/Sketch/assets/9631530/fc59a2d6-d6e7-4605-a496-4f159668b114)
+
 ```cs
 public class SimpleExample : Sketch
 {
@@ -18,7 +20,9 @@ public class SimpleExample : Sketch
 ```
 
 Accumulation Motion Blur
+
 ![Unity_oc1xQHLEuU](https://github.com/keenanwoodall/Sketch/assets/9631530/3d6f9331-2ddc-4927-91eb-6b05c4367c3f)
+
 ```cs
 public float speed = 1080;
 public float speedMult = 1;
