@@ -80,6 +80,10 @@ public abstract class Sketch : MonoBehaviour
             if (MotionBlurSubFrames() > 0 && Draw.BlendMode != ShapesBlendMode.Additive)
                 Debug.LogWarning("Motion Blur enabled without additive blending. Colors may not look correct.");
 
+            PrepareDrawing();
+            _drawAlpha = 1f;
+            OnDrawForeground();
+
             _lastDrawTime = UnityEngine.Time.timeAsDouble - _startTime;
         }
     }
@@ -151,8 +155,8 @@ public abstract class Sketch : MonoBehaviour
 
     private void PrepareDrawing()
     {
-        Width   = _targetCamera.scaledPixelWidth;
-        Height  = _targetCamera.scaledPixelHeight;
+        Width   = _targetCamera.pixelWidth;
+        Height  = _targetCamera.pixelHeight;
         Size    = float2(Width, Height);
 
         Color(WHITE);
@@ -199,6 +203,8 @@ public abstract class Sketch : MonoBehaviour
     protected virtual void OnStop(){}
     protected virtual void OnDrawBackground(){}
     protected virtual void OnDraw(){}
+    protected virtual void OnDrawForeground(){}
+
 
     [NonSerialized] public float Time;
     [NonSerialized] public double PreciseTime;
