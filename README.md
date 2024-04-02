@@ -1,4 +1,5 @@
 Create Processing-like sketches in Unity
+Most made for fun, and very incomplete!
 
 ## ⚠️ Requires Shapes ⚠️
 For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
@@ -16,7 +17,8 @@ TODO:
 
 ### Examples
 
-Hello Circle
+<details>
+<summary></summart>Hello Circle</summary>
 
 ![image](https://github.com/keenanwoodall/Sketch/assets/9631530/1f62a32c-391d-4c65-ae55-26e2c90711bd)
 
@@ -32,8 +34,9 @@ public class SimpleExample : Sketch
     }
 }
 ```
-
-Accumulation Motion Blur
+</details>
+<details>
+<summary>Accumulation Motion Blur</summary>
 
 ![Unity_oc1xQHLEuU](https://github.com/keenanwoodall/Sketch/assets/9631530/3d6f9331-2ddc-4927-91eb-6b05c4367c3f)
 
@@ -69,8 +72,9 @@ protected override void OnDraw()
     }
 }
 ```
-
-Bouncing Balls
+</details>
+<details>
+<summary>Bouncing Balls</summary>
 
 ![Unity_qWt2rhO9GQ](https://github.com/keenanwoodall/Sketch/assets/9631530/dc14cbc6-f35f-4b9b-ae0e-84397d2c5cd5)
 
@@ -166,8 +170,9 @@ void EdgeBounce(Ball ball)
     }
 }
 ```
-
-Smooth Snake
+</details>
+<details>
+<summary>Smooth Snake</summary>
 
 ![Unity_FXp8344Bb3](https://github.com/keenanwoodall/Sketch/assets/9631530/76c25209-8c71-4b2a-b36b-c64fc9d52df0)
 
@@ -207,3 +212,4 @@ protected override void OnDraw()
     }
 }
 ```
+</details>
