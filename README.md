@@ -275,18 +275,19 @@ protected override void OnDraw()
     AdditiveBlend();
     // Player Physics
     {
-        var movementSpeed = 700f;
+        var movementSpeed = 1_000_000f;
         var jumpSpeed = 3500f;
         // Move left/right
         if (KeyHeld(Key.A) || KeyHeld(Key.LeftArrow))
-            player.velocity += left().xy * movementSpeed;
+            player.velocity.x = lerp(player.velocity.x, -movementSpeed, 1f - exp(-DeltaTime));
         if (KeyHeld(Key.D) || KeyHeld(Key.RightArrow))
-            player.velocity += right().xy * movementSpeed;
+            player.velocity.x = lerp(player.velocity.x, movementSpeed, 1f - exp(-DeltaTime));
+        else
+            player.velocity.x = lerp(player.velocity.x, 0f, 1f - exp(-DeltaTime * 20f));
         // Jump
         if (KeyPressed(Key.Space) || KeyPressed(Key.W) || KeyPressed(Key.UpArrow))
             player.velocity.y = max(jumpSpeed, player.velocity.y);
-        // Deaccelerate
-        player.velocity.x = lerp(player.velocity.x, 0f, 1f - exp(-DeltaTime * 20f));
+        
         // Gravity
         var gravityForce = float2(0f, -20000f);
         player.velocity += gravityForce * DeltaTime;
@@ -416,7 +417,7 @@ private void Shoot(float speed, float angle, float size, out float2 position, ou
     var angleRadians = radians(angle);
     var cAngle = cos(angleRadians);
     var sAngle = sin(angleRadians);
-    projectileDirection = float2(projectileDirection.x * cAngle - projectileDirection.y * sAngle, projectileDirection.x * sAngle + projectileDirection.y * cAngl
+    projectileDirection = float2(projectileDirection.x * cAngle - projectileDirection.y * sAngle, projectileDirection.x * sAngle + pro
     var projectileVelocity = projectileDirection * speed;
     // Add new projectile
     projectiles.Add(new Projectile { position = projectilePosition, velocity = projectileVelocity, size = size });
@@ -429,24 +430,28 @@ private bool HandleScreenBoundary(ref float2 position, ref float2 velocity, floa
 {
     var hit = false;
     var halfSize = size / 2f;
+    // Bottom
     if (position.y - halfSize.y < 0)
     {
         position.y = halfSize.y;
         velocity.y *= -bounciness;
         hit = true;
     }
+    // Top
     if (position.y + halfSize.y > Height)
     {
         position.y = Height - halfSize.y;
         velocity.y *= -bounciness;
         hit = true;
     }
+    // Left
     if (position.x - halfSize.x < 0f)
     {
         position.x = halfSize.x;
         velocity.x *= -bounciness;
         hit = true;
     }
+    // Right
     if (position.x > Width - halfSize.x)
     {
         position.x = Width - halfSize.x;
@@ -458,10 +463,18 @@ private bool HandleScreenBoundary(ref float2 position, ref float2 velocity, floa
 private bool CheckScreenBoundary(float2 position, float2 size)
 {
     var halfSize = size / 2f;
-    if (position.y - halfSize.y < 0) return true;
-    if (position.y + halfSize.y > Height) return true;
-    if (position.x - halfSize.x < 0f) return true;
-    if (position.x > Width - halfSize.x) return true;
+    // Bottom
+    if (position.y - halfSize.y < 0)
+        return true;
+    // Top
+    if (position.y + halfSize.y > Height)
+        return true;
+    // Left
+    if (position.x - halfSize.x < 0f)
+        return true;
+    // Right
+    if (position.x > Width - halfSize.x)
+        return true;
     return false;
 }
 ```
