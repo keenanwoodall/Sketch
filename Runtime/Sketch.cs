@@ -16,6 +16,7 @@ public abstract class Sketch : MonoBehaviour
     private double _minTimeStep;
     private int _subFrames;
     private bool _isSubFrame;
+    private float _drawAlpha = 1f;
     private ShutterProfile _shutterProfile;
     private InputSettings.UpdateMode _lastUpdateMode;
 
@@ -85,6 +86,8 @@ public abstract class Sketch : MonoBehaviour
             OnDrawForeground();
 
             _lastDrawTime = UnityEngine.Time.timeAsDouble - _startTime;
+
+            LastMousePosition = MousePosition;
         }
     }
 
@@ -103,6 +106,7 @@ public abstract class Sketch : MonoBehaviour
         _lastUpdateMode = InputSystem.settings.updateMode;
         InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsManually;
 
+        InitializeInput();
         InitializeTime();
         FrameRate(60f);
         MotionBlur(0, UniformShutter);
@@ -167,6 +171,25 @@ public abstract class Sketch : MonoBehaviour
         Draw.Matrix         = SketchUtils.GetScreenToWorldMatrix(_targetCamera);
     }
 
+    private void InitializeInput()
+    {
+        InputSystem.Update();
+        
+        var focused = Application.isFocused;
+        if (focused)
+        {
+            var mousePosition           = Mouse.current?.position.value ?? Vector2.zero;
+            var viewportMousePosition   = _targetCamera.ScreenToViewportPoint(mousePosition);
+            var pixelMousePosition      = Vector2.Scale(viewportMousePosition, new Vector2(_targetCamera.pixelWidth, _targetCamera.pixelHeight));
+
+            MousePosition               = pixelMousePosition;
+            LastMousePosition           = MousePosition;
+            MouseDelta                  = 0;
+            MouseX                      = pixelMousePosition.x;
+            MouseY                      = pixelMousePosition.y;
+        }
+    }
+
     private void UpdateInput()
     {
         InputSystem.Update();
@@ -179,9 +202,9 @@ public abstract class Sketch : MonoBehaviour
             var pixelMousePosition      = Vector2.Scale(viewportMousePosition, new Vector2(_targetCamera.pixelWidth, _targetCamera.pixelHeight));
 
             MousePosition               = pixelMousePosition;
+            MouseDelta                  = MousePosition - LastMousePosition;
             MouseX                      = pixelMousePosition.x;
             MouseY                      = pixelMousePosition.y;
-            MouseHeld                   = Mouse.current?.leftButton.isPressed ?? false && Application.isFocused;
         }
 
         if (focused && Keyboard.current.anyKey.wasPressedThisFrame)
@@ -191,11 +214,11 @@ public abstract class Sketch : MonoBehaviour
         if (focused && Keyboard.current.anyKey.wasReleasedThisFrame)
             OnKeyRelease();
 
-        if (focused && Mouse.current.leftButton.wasPressedThisFrame)
+        if (focused && Mouse.current.leftButton.wasPressedThisFrame || Mouse.current.rightButton.wasPressedThisFrame || Mouse.current.middleButton.wasPressedThisFrame)
             OnMousePress();
-        if (focused && Mouse.current.leftButton.isPressed)
+        if (focused && Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed || Mouse.current.middleButton.isPressed)
             OnMouseHeld();
-        if (focused && Mouse.current.leftButton.wasReleasedThisFrame)
+        if (focused && Mouse.current.leftButton.wasReleasedThisFrame || Mouse.current.rightButton.wasReleasedThisFrame || Mouse.current.middleButton.wasReleasedThisFrame)
             OnMouseRelease();
     }
 
@@ -227,6 +250,14 @@ public abstract class Sketch : MonoBehaviour
     public readonly ShutterProfile UniformShutter = new ShutterProfile(AnimationCurve.Constant(0f, 1f, 1f));
     public readonly ShutterProfile SmoothShutter = new ShutterProfile(shutterOpen: 0.25f, shutterClose: 0.75f);
 
+    public void ScreenShake(int seed, float time, float amplitude = 1, float frequency = 12f)
+    {
+        noise.snoise(seed + float3(time, time, time) * frequency, out var offset);
+        offset *= amplitude;
+
+        Translate(offset.xy);
+    }
+
     protected virtual void OnMousePress(){}
     protected virtual void OnMouseRelease(){}
     protected virtual void OnMouseHeld(){}
@@ -247,13 +278,51 @@ public abstract class Sketch : MonoBehaviour
     [NonSerialized] public float MouseX;
     [NonSerialized] public float MouseY;
     [NonSerialized] public float2 MousePosition;
-    [NonSerialized] public bool MouseHeld;
+    [NonSerialized] public float2 LastMousePosition;
+    [NonSerialized] public float2 MouseDelta;
+
+    public enum MouseButton { Left, Middle, Right }
+    public bool MouseButtonPressed(MouseButton mouseButton)
+    {
+        if (_isSubFrame || !Application.isFocused)
+            return false;
+        return mouseButton switch
+        {
+            MouseButton.Left => Mouse.current.leftButton.wasPressedThisFrame,
+            MouseButton.Middle => Mouse.current.middleButton.wasPressedThisFrame,
+            MouseButton.Right => Mouse.current.rightButton.wasPressedThisFrame,
+            _ => false
+        };
+    }
+    public bool MouseButtonHeld(MouseButton mouseButton)
+    {
+        if (_isSubFrame || !Application.isFocused)
+            return false;
+        return mouseButton switch
+        {
+            MouseButton.Left => Mouse.current.leftButton.isPressed,
+            MouseButton.Middle => Mouse.current.middleButton.isPressed,
+            MouseButton.Right => Mouse.current.rightButton.isPressed,
+            _ => false
+        };
+    }
+    public bool MouseButtonReleased(MouseButton mouseButton)
+    {
+        if (_isSubFrame || !Application.isFocused)
+            return false;
+        return mouseButton switch
+        {
+            MouseButton.Left => Mouse.current.leftButton.wasReleasedThisFrame,
+            MouseButton.Middle => Mouse.current.middleButton.wasReleasedThisFrame,
+            MouseButton.Right => Mouse.current.rightButton.wasReleasedThisFrame,
+            _ => false
+        };
+    }
     
     public bool KeyPressed(Key key) => !_isSubFrame && Application.isFocused && Keyboard.current[key].wasPressedThisFrame;
     public bool KeyHeld(Key key) => !_isSubFrame && Application.isFocused && Keyboard.current[key].isPressed;
     public bool KeyReleased(Key key) => !_isSubFrame && Application.isFocused && Keyboard.current[key].wasReleasedThisFrame;
 
-    private float _drawAlpha = 1f;
     public void Color(float brightness) => Draw.Color = new Color(brightness, brightness, brightness, _drawAlpha);
     public void Color(float3 rgb) => Draw.Color = new Color(rgb.x, rgb.y, rgb.z, _drawAlpha);
     public void Color(float4 rgba) => Draw.Color = new Color(rgba.x, rgba.y, rgba.z, rgba.w * _drawAlpha);
@@ -292,6 +361,16 @@ public abstract class Sketch : MonoBehaviour
         RotateAround(x, y, angle);
         Draw.Rectangle(new Vector2(x, y), new Vector2(size, size), cornerRadius);
         Draw.PopMatrix();
+    }
+
+    public void Translate(float2 offset)
+    {
+        Draw.Matrix *= Matrix4x4.Translate((Vector2)offset);
+    }
+
+    public void Translate(float offsetX, float offsetY)
+    {
+        Draw.Matrix *= Matrix4x4.Translate(new Vector3(offsetX, offsetY));
     }
 
     public void Rotate(float degrees)
