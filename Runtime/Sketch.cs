@@ -188,7 +188,9 @@ public abstract class Sketch : MonoBehaviour
         Color(WHITE);
         StrokeWeight(1);
         TransparentBlend();
+        NoGradient();
 
+        Draw.LineEndCaps    = LineEndCap.None;
         Draw.ThicknessSpace = ThicknessSpace.Meters;
         Draw.Matrix         = SketchUtils.GetScreenToWorldMatrix(_targetCamera);
     }
@@ -387,7 +389,43 @@ public abstract class Sketch : MonoBehaviour
 
     public void StrokeWeight(float weight) => Draw.Thickness = weight;
 
-    public void Fill() => Draw.Rectangle(new Rect(0, 0, Width, Height), 0f);
+    public void NoGradient()
+    {
+        Draw.GradientFill = GradientFill.defaultFill;
+        Draw.UseGradientFill = false;
+    }
+
+    public void LinearGradient(float4 startColor, float4 endColor, float2 startPosition, float2 endPosition)
+    {
+        Draw.UseGradientFill            = true;
+        Draw.GradientFillColorStart     = new Color(startColor.x, startColor.y, startColor.z, startColor.w);
+        Draw.GradientFillColorEnd       = new Color(endColor.x, endColor.y, endColor.z, endColor.w);
+        Draw.GradientFillType           = FillType.LinearGradient;
+        Draw.GradientFillSpace          = FillSpace.Local;
+        Draw.GradientFillLinearStart    = (Vector2)startPosition;
+        Draw.GradientFillLinearEnd      = (Vector2)endPosition;
+    }
+    public void LinearGradient(float3 startColor, float3 endColor, float2 startPosition, float2 endPosition) => LinearGradient(float4(startColor, 1f), float4(endColor, 1f), startPosition, endPosition);
+    public void LinearGradient(float4 startColor, float4 endColor) => LinearGradient(startColor, endColor, float2(Width / 2, 0f), float2(Width / 2, Height));
+    public void LinearGradient(float3 startColor, float3 endColor) => LinearGradient(float4(startColor, 1f), float4(endColor, 1f), float2(Width / 2, 0f), float2(Width / 2, Height));
+
+    public void RadialGradient(float4 startColor, float4 endColor, float2 origin, float radius)
+    {
+        Draw.UseGradientFill            = true;
+        Draw.GradientFillColorStart     = new Color(startColor.x, startColor.y, startColor.z, startColor.w);
+        Draw.GradientFillColorEnd       = new Color(endColor.x, endColor.y, endColor.z, endColor.w);
+        Draw.GradientFillType           = FillType.RadialGradient;
+        Draw.GradientFillSpace          = FillSpace.Local;
+        Draw.GradientFillRadialOrigin   = (Vector2)origin;
+        Draw.GradientFillRadialRadius   = radius;
+    }
+    public void RadialGradient(float3 innerColor, float3 outerColor, float2 origin, float radius) => RadialGradient(float4(innerColor, 1f), float4(outerColor, 1f), origin, radius);
+
+    public void RadialGradient(float4 innerColor, float4 outerColor) => RadialGradient(innerColor, outerColor, Size / 2f, max(Width, Height));
+    public void RadialGradient(float3 innerColor, float3 outerColor) => RadialGradient(float4(innerColor, 1f), float4(outerColor, 1f), Size / 2f, max(Width, Height));
+
+
+    public void Fill() => Draw.Rectangle(new Rect(0, 0, Width, Height), cornerRadius: 0f);
     public void Line(float x1, float y1, float x2, float y2) => Draw.Line(new Vector3(x1, y1), new Vector3(x2, y2));
     public void Line(float2 p1, float2 p2) => Draw.Line((Vector2)p1, (Vector2)p2);
     public void Circle(float x, float y, float radius) => Draw.Disc(new Vector2(x, y), radius);
