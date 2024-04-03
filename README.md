@@ -5,6 +5,11 @@ Mostly made for fun and very incomplete!
 ## ⚠️ Requires Shapes ⚠️
 For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
 
+## Cool Stuff
+- Easily add high-quality accumulation motion blur by simply calling `MotionBlur(subFrames)` from `OnStart`
+- Easily record your sketch by calling `StartRecording(mode, quality)` from `OnStart`
+- Easily add screen shake by calling `ScreenShake(seed, elapsedTime, ampl, freq)` from `OnDraw`
+
 ## Instructions
 - Install [Shapes](https://www.acegikmo.com/shapes/)
 - Add Shapes' Immediate Mode render feature
