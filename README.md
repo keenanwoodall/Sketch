@@ -1,9 +1,10 @@
 Create Processing-like sketches in Unity for URP.
 
-Mostly made for myself and very incomplete!
+Mostly made for myself and very incomplete! The goal is for everything to be EASY, not necessarily performant or robust.
 
 ## ⚠️ Requires Shapes ⚠️
 For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
+(This package also pairs well with hot reloading. I use [HotReload](https://hotreload.net/), but would like to implement it myself if I can figure it out.)
 
 ## Cool Stuff
 - Easily add high-quality accumulation motion blur by simply calling `MotionBlur(subFrames)` from `OnStart`
