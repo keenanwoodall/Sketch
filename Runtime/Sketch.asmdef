@@ -6,6 +6,8 @@
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.Mathematics",
         "Unity.InputSystem",
+        "Unity.Recorder",
+        "Unity.Recorder.Editor",
         "ShapesRuntime"
     ],
     "includePlatforms": [],

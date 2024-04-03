@@ -1,4 +1,9 @@
+#if UNITY_EDITOR
+#define RECORDING_SUPPORTED
+#endif
+
 using System;
+using System.IO;
 using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.InputSystem;
@@ -7,6 +12,12 @@ using Shapes;
 
 using static Unity.Mathematics.math;
 using UnityEngine.Rendering;
+
+#if RECORDING_SUPPORTED
+using UnityEditor.Recorder;
+using UnityEditor.Recorder.Input;
+using UnityEditor.Recorder.Encoder;
+#endif
 
 public abstract class Sketch : MonoBehaviour
 {
@@ -18,6 +29,15 @@ public abstract class Sketch : MonoBehaviour
     private int _subFrames;
     private bool _isSubFrame;
     private float _drawAlpha = 1f;
+#if RECORDING_SUPPORTED
+    private bool _recording;
+    private string _lastRecordingPath;
+    private static readonly string RecordingTakeKey = "SKETCH_TAKE";
+    private RecorderController _recorderController;
+    private RecorderControllerSettings _recorderControllerSettings;
+    private MovieRecorderSettings _movieRecorderSettings;
+    private ImageRecorderSettings _imageRecorderSettings;
+#endif
     private ShutterProfile _shutterProfile;
     private InputSettings.UpdateMode _lastUpdateMode;
 
@@ -118,6 +138,14 @@ public abstract class Sketch : MonoBehaviour
         _lastUpdateMode = InputSystem.settings.updateMode;
         InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsManually;
 
+#if RECORDING_SUPPORTED
+        _recording = false;
+        _recorderControllerSettings = ScriptableObject.CreateInstance<RecorderControllerSettings>();
+        _movieRecorderSettings = ScriptableObject.CreateInstance<MovieRecorderSettings>();
+        _imageRecorderSettings = ScriptableObject.CreateInstance<ImageRecorderSettings>();
+        _recorderController = new RecorderController(_recorderControllerSettings);
+#endif
+
         InitializeInput();
         InitializeTime();
         FrameRate(60f);
@@ -133,7 +161,6 @@ public abstract class Sketch : MonoBehaviour
         try { OnStop(); }
         finally
         {
-            InputSystem.settings.updateMode = _lastUpdateMode;
             if (_targetCamera && _targetCamera.gameObject)
             {
                 if (immediate)
@@ -142,6 +169,11 @@ public abstract class Sketch : MonoBehaviour
                     DestroyImmediate(_targetCamera);
                     DestroyImmediate(_volume);
                     DestroyImmediate(_volumeProfile);
+#if RECORDING_SUPPORTED
+                    DestroyImmediate(_recorderControllerSettings);
+                    DestroyImmediate(_movieRecorderSettings);
+                    DestroyImmediate(_imageRecorderSettings);
+#endif
                 }
                 else
                 {
@@ -149,11 +181,21 @@ public abstract class Sketch : MonoBehaviour
                     Destroy(_targetCamera);
                     Destroy(_volume);
                     Destroy(_volumeProfile);
+#if RECORDING_SUPPORTED
+                    Destroy(_recorderControllerSettings);
+                    Destroy(_movieRecorderSettings);
+                    Destroy(_imageRecorderSettings);
+#endif
                 }
+
+                InputSystem.settings.updateMode = _lastUpdateMode;
 
                 _targetCamera   = null;
                 _volume         = null;
                 _volumeProfile  = null;
+
+                if (_recording)
+                    StopRecording();
             }
         }
     }
@@ -472,7 +514,6 @@ public abstract class Sketch : MonoBehaviour
         Draw.Matrix *= Matrix4x4.Translate(new Vector3(pivotX, pivotY)) * Matrix4x4.Rotate(rotation) * Matrix4x4.Translate(new Vector3(-pivotX, -pivotY)); 
     }
 
-
     [NonSerialized]
     public Unity.Mathematics.Random Random;
     public float2 RandomScreenPoint(float padding = 0f) => Random.NextFloat2(padding, Size - padding);
@@ -497,4 +538,102 @@ public abstract class Sketch : MonoBehaviour
         var rad = radians(angle);
         return float2(cos(rad), sin(rad)) * radius;
     }
+
+#if RECORDING_SUPPORTED 
+    public enum RecordingMode { ImageSequence, Movie }
+    public enum RecordingQuality { Low, High }
+    public void StartRecording(RecordingMode mode, RecordingQuality quality)
+    {
+        _recording = true;
+
+        var take = UnityEditor.EditorPrefs.GetInt(RecordingTakeKey, 0);        
+        var outputPath = Application.dataPath + "/../Recordings/" + gameObject.name;
+
+        RecorderSettings recorderSettings = null;
+        switch (mode)
+        {
+            case RecordingMode.ImageSequence:
+            {
+                _imageRecorderSettings.Enabled = true;
+                _movieRecorderSettings.Enabled = false;
+
+                _lastRecordingPath = outputPath + $"/Take_{take}/";
+                outputPath = outputPath + $"/Take_{take}/{gameObject.name}_Take_{take}_{DefaultWildcard.Frame}";
+
+                _imageRecorderSettings.OutputFormat = quality switch 
+                { 
+                    RecordingQuality.Low => ImageRecorderSettings.ImageRecorderOutputFormat.JPEG,
+                    RecordingQuality.High => ImageRecorderSettings.ImageRecorderOutputFormat.PNG,
+                    _ => ImageRecorderSettings.ImageRecorderOutputFormat.PNG
+                };
+
+                _imageRecorderSettings.CaptureAlpha = false;
+                _imageRecorderSettings.OutputFile = outputPath;
+                _imageRecorderSettings.FrameRatePlayback = FrameRatePlayback.Constant;
+                _imageRecorderSettings.FrameRate = FrameRate();
+                _imageRecorderSettings.CapFrameRate = true;
+                _imageRecorderSettings.imageInputSettings = new GameViewInputSettings();
+
+                recorderSettings = _imageRecorderSettings;
+                break;
+            }
+            case RecordingMode.Movie:
+            {
+                _movieRecorderSettings.Enabled = true;
+                _imageRecorderSettings.Enabled = false;
+
+                _lastRecordingPath = outputPath;
+                outputPath = outputPath + $"/{gameObject.name}_Take_{take}";
+
+                _movieRecorderSettings.OutputFile = outputPath;
+                _movieRecorderSettings.CaptureAudio = false;
+                _movieRecorderSettings.CaptureAlpha = false;
+                _movieRecorderSettings.FrameRatePlayback = FrameRatePlayback.Constant;
+                _movieRecorderSettings.FrameRate = FrameRate();
+                _movieRecorderSettings.CapFrameRate = true;
+                _movieRecorderSettings.EncoderSettings = new CoreEncoderSettings
+                {
+                    Codec = CoreEncoderSettings.OutputCodec.WEBM,
+                    EncodingQuality = quality switch 
+                    {
+                        RecordingQuality.Low => CoreEncoderSettings.VideoEncodingQuality.Low,
+                        RecordingQuality.High => CoreEncoderSettings.VideoEncodingQuality.High,
+                        _ => CoreEncoderSettings.VideoEncodingQuality.Low
+                    }
+                };
+
+                recorderSettings = _movieRecorderSettings;
+                break;
+            }
+        };
+        
+
+        if (recorderSettings == null)
+        {
+            Debug.LogError($"Failed to start recording. Couldn't find recorder settings for {mode}");
+            return;
+        }
+
+        _recorderControllerSettings.AddRecorderSettings(recorderSettings);
+        _recorderControllerSettings.SetRecordModeToManual();
+
+        _recorderController.PrepareRecording();
+        _recorderController.StartRecording();
+    }
+
+    public void StopRecording(bool revealInFolder = false)
+    {
+        if (!_recording)
+            return;
+        _recording = false;
+        var take = UnityEditor.EditorPrefs.GetInt(RecordingTakeKey, 0);
+        UnityEditor.EditorPrefs.SetInt(RecordingTakeKey, take + 1);
+        _recorderController.StopRecording();
+
+        if (revealInFolder)
+            Application.OpenURL($"file:///{_lastRecordingPath}");
+    }
+    public void ResetRecordingTakeCount() => UnityEditor.EditorPrefs.SetInt(RecordingTakeKey, 0);
+    public string GetLastRecordingPath() => _lastRecordingPath;
+#endif
 }
