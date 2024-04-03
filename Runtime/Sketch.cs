@@ -6,6 +6,7 @@ using UnityEngine.Rendering.Universal;
 using Shapes;
 
 using static Unity.Mathematics.math;
+using UnityEngine.Rendering;
 
 public abstract class Sketch : MonoBehaviour
 {
@@ -19,6 +20,11 @@ public abstract class Sketch : MonoBehaviour
     private float _drawAlpha = 1f;
     private ShutterProfile _shutterProfile;
     private InputSettings.UpdateMode _lastUpdateMode;
+
+    private Volume _volume;
+    private VolumeProfile _volumeProfile;
+    private Bloom _bloom;
+    private Vignette _vignette;
 
     protected void OnEnable() => StartSketch();
     protected void OnDisable() => StopSketch();
@@ -99,6 +105,13 @@ public abstract class Sketch : MonoBehaviour
         _targetCamera.orthographic  = true;
         _targetCamera.clearFlags    = CameraClearFlags.Nothing;
         _targetCamera.hideFlags     = HideFlags.NotEditable;
+        _targetCamera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
+
+        _volume                     = gameObject.AddComponent<Volume>();
+        _volumeProfile              = ScriptableObject.CreateInstance<VolumeProfile>();
+        _volume.profile             = _volumeProfile;
+        _bloom                      = _volumeProfile.Add<Bloom>(overrides: false);
+        _vignette                   = _volumeProfile.Add<Vignette>(overrides: false);
 
         var seed = (uint)UnityEngine.Random.Range(0, 4294967295);
         Random = new Unity.Mathematics.Random(seed);
@@ -110,6 +123,7 @@ public abstract class Sketch : MonoBehaviour
         InitializeTime();
         FrameRate(60f);
         MotionBlur(0, UniformShutter);
+        Bloom(intensity: 0f);
         PrepareDrawing();
         UpdateInput();
         OnStart();  
@@ -127,12 +141,20 @@ public abstract class Sketch : MonoBehaviour
                 {
                     DestroyImmediate(_targetCamera.GetUniversalAdditionalCameraData());
                     DestroyImmediate(_targetCamera);
+                    DestroyImmediate(_volume);
+                    DestroyImmediate(_volumeProfile);
                 }
                 else
                 {
                     Destroy(_targetCamera.GetUniversalAdditionalCameraData());
                     Destroy(_targetCamera);
+                    Destroy(_volume);
+                    Destroy(_volumeProfile);
                 }
+
+                _targetCamera   = null;
+                _volume         = null;
+                _volumeProfile  = null;
             }
         }
     }
@@ -250,6 +272,39 @@ public abstract class Sketch : MonoBehaviour
     public readonly ShutterProfile UniformShutter = new ShutterProfile(AnimationCurve.Constant(0f, 1f, 1f));
     public readonly ShutterProfile SmoothShutter = new ShutterProfile(shutterOpen: 0.25f, shutterClose: 0.75f);
 
+    public void Bloom(float threshold = 1f, float intensity = 1f, float scatter = 0.7f)
+    {
+        _bloom.threshold.overrideState  = true;
+        _bloom.intensity.overrideState  = true;
+        _bloom.scatter.overrideState    = true;
+
+        _bloom.threshold.value          = threshold;
+        _bloom.intensity.value          = intensity;
+        _bloom.scatter.value            = scatter;
+    }
+
+    public void Vignette(float4 color, float intensity = 1f, float smoothness = 0.2f)
+    {
+        _vignette.color.overrideState       = true;
+        _vignette.intensity.overrideState   = true;
+        _vignette.smoothness.overrideState  = true;
+
+        _vignette.color.value               = new Color(color.x, color.y, color.z, color.w);
+        _vignette.intensity.value           = intensity;
+        _vignette.smoothness.value          = smoothness;
+    }
+
+    public void Vignette(float intensity = 1f, float smoothness = 0.2f)
+    {
+        _vignette.color.overrideState       = true;
+        _vignette.intensity.overrideState   = true;
+        _vignette.smoothness.overrideState  = true;
+
+        _vignette.color.value               = new Color(0f, 0f, 0f, 1f);
+        _vignette.intensity.value           = intensity;
+        _vignette.smoothness.value          = smoothness;
+    }
+
     public void ScreenShake(int seed, float time, float amplitude = 1, float frequency = 12f)
     {
         noise.snoise(seed + float3(time, time, time) * frequency, out var offset);
@@ -363,27 +418,17 @@ public abstract class Sketch : MonoBehaviour
         Draw.PopMatrix();
     }
 
-    public void Translate(float2 offset)
-    {
-        Draw.Matrix *= Matrix4x4.Translate((Vector2)offset);
-    }
+    public void ResetMatrix() => Draw.Matrix = SketchUtils.GetScreenToWorldMatrix(_targetCamera);
 
-    public void Translate(float offsetX, float offsetY)
-    {
-        Draw.Matrix *= Matrix4x4.Translate(new Vector3(offsetX, offsetY));
-    }
+    public void Translate(float2 offset) => Draw.Matrix *= Matrix4x4.Translate((Vector2)offset);
+    public void Translate(float offsetX, float offsetY) => Draw.Matrix *= Matrix4x4.Translate(new Vector3(offsetX, offsetY));
 
-    public void Rotate(float degrees)
-    {
-        RotateAround(Width / 2, Height / 2, degrees);
-    }
-
+    public void Rotate(float degrees) => RotateAround(Width / 2, Height / 2, degrees);
     public void RotateAround(float2 pivot, float degrees)
     {
         var rotation = Quaternion.Euler(0, 0, degrees);
         Draw.Matrix *= Matrix4x4.Translate(new Vector3(pivot.x, pivot.y)) * Matrix4x4.Rotate(rotation) * Matrix4x4.Translate(new Vector3(-pivot.x, -pivot.y)); 
     }
-
     public void RotateAround(float pivotX, float pivotY, float degrees)
     {
         var rotation = Quaternion.Euler(0, 0, degrees);
