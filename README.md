@@ -5,6 +5,21 @@ Mostly made for fun and very incomplete!
 ## ⚠️ Requires Shapes ⚠️
 For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
 
+## Instructions
+- Create a new script derived from the `Sketch` base class.
+- Override sketch functions like `OnStart` and `OnDraw`.
+- Add script to game-object in a blank scene
+
+I recommend poking around the `Sketch` base class to see the various utilities and functions it provides.
+Its goal is to provide (almost) everything you need in a simple API.
+For example, rather than using `UnityEngine.Time.time` you can simply use the `Time` variable.
+
+`Sketch` components are (currently) not the best neighbor since sketches are meant to the the primary "application."
+You can have other stuff happening outside of the sketch if you like, but you may run into issues.
+Sketches high-jack the input system and update it manually to support their custom update loop.
+They run at 60 fps by default, so there will be flickering if you have any cameras in your scene.
+
+
 TODO:
 - Get/Set pixels
 - Integrated recorder
