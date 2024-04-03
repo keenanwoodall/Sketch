@@ -20,7 +20,7 @@ Sketches high-jack the input system and update it manually to support their cust
 They run at 60 fps by default, so there will be flickering if you have any cameras in your scene.
 
 
-TODO:
+TODO 🤞
 - Get/Set pixels
 - Integrated recorder
 - Multiple canvases
@@ -30,6 +30,9 @@ TODO:
 - Hot reloading
 - Runtime code editing
 - GUI
+- Physics
+- Masking
+- Shaders
 
 ### Examples
 
