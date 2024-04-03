@@ -6,6 +6,8 @@ Mostly made for fun and very incomplete!
 For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
 
 ## Instructions
+- Install [Shapes](https://www.acegikmo.com/shapes/)
+- Add Sketch package via git url `https://github.com/keenanwoodall/Sketch`
 - Create a new script derived from the `Sketch` base class.
 - Override sketch functions like `OnStart` and `OnDraw`.
 - Add script to game-object in a blank scene
@@ -238,33 +240,27 @@ protected override void OnDraw()
 ![Unity_Qo4hvAeTxD](https://github.com/keenanwoodall/Sketch/assets/9631530/bf9646a8-8937-4e95-a6b5-174caae946a7)
 
 ```cs
-float2 playerPosition, playerVelocity, playerSize;
-int bulletCount = 0;
-float2[] bulletPositions, bulletVelocities;
-int cameraShakeCount = 0;
-float[] cameraShakeStartTimes;
-float2[] targetPositions, targetVelocities;
-float3[] targetColors;
-float[] targetRadii;
+struct Player { public float2 position, velocity, size; }
+struct Projectile { public float2 position, velocity; public float size; }
+struct Target { public float2 position, velocity; public float4 color; public float radius; }
+struct Shake { public float startTime; }
+Player player;
+List<Projectile> projectiles;
+List<Target> targets;
+List<Shake> shakes;
 float _lastShootTime;
 protected override void OnStart()
 {
-    playerPosition = float2(Width / 2, 0);
-    bulletCount = 0;
-    bulletPositions = new float2[8];
-    bulletVelocities = new float2[8];
-    cameraShakeStartTimes = new float[8];
-    var targetCount = 10;
-    targetPositions = new float2[targetCount];
-    targetVelocities = new float2[targetCount];
-    targetColors = new float3[targetCount];
-    targetRadii = new float[targetCount];
-    for (int i = 0; i < targetCount; i++)
+    player = new Player 
     {
-        targetPositions[i] = RandomScreenPoint(100);
-        targetVelocities[i] = default;
-        targetRadii[i] = Random.NextFloat(20, 50);
-    }
+        position = new(Width / 2, 0),
+        size = float2(50, 100)
+    };
+    projectiles = new();
+    targets = new();
+    shakes = new();
+    for (int i = 0; i < 10; i++)
+        targets.Add(new Target { position = RandomScreenPoint(100), radius = Random.NextFloat(20, 50), color = RED });
     _lastShootTime = float.NegativeInfinity;
     Bloom();
     MotionBlur(60, SmoothShutter);
@@ -277,107 +273,110 @@ protected override void OnDrawBackground()
 protected override void OnDraw()
 {
     AdditiveBlend();
-    playerSize = float2(50, 100);
     // Player Physics
     {
         var movementSpeed = 700f;
         var jumpSpeed = 3500f;
         // Move left/right
         if (KeyHeld(Key.A) || KeyHeld(Key.LeftArrow))
-            playerVelocity += left().xy * movementSpeed;
+            player.velocity += left().xy * movementSpeed;
         if (KeyHeld(Key.D) || KeyHeld(Key.RightArrow))
-            playerVelocity += right().xy * movementSpeed;
+            player.velocity += right().xy * movementSpeed;
         // Jump
         if (KeyPressed(Key.Space) || KeyPressed(Key.W) || KeyPressed(Key.UpArrow))
-            playerVelocity.y = max(jumpSpeed, playerVelocity.y);
+            player.velocity.y = max(jumpSpeed, player.velocity.y);
         // Deaccelerate
-        playerVelocity.x = lerp(playerVelocity.x, 0f, 1f - exp(-DeltaTime * 20f));
+        player.velocity.x = lerp(player.velocity.x, 0f, 1f - exp(-DeltaTime * 20f));
         // Gravity
         var gravityForce = float2(0f, -20000f);
-        playerVelocity += gravityForce * DeltaTime;
+        player.velocity += gravityForce * DeltaTime;
         // Apply velocity
-        playerPosition += playerVelocity * DeltaTime;
+        player.position += player.velocity * DeltaTime;
         // Window edges
-        var playerCenter = playerPosition + float2(0, playerSize.y / 2f);
-        HandleScreenBoundary(ref playerCenter, ref playerVelocity, playerSize, 0f);
-        playerPosition = playerCenter - float2(0, playerSize.y / 2f);
+        var playerCenter = player.position + float2(0, player.size.y / 2f);
+        HandleScreenBoundary(ref playerCenter, ref player.velocity, player.size, 0f);
+        player.position = playerCenter - float2(0, player.size.y / 2f);
     }
-    
-    var bulletSize = float2(5);
-    // Bullet Physics
+    // Projectile physics
     {
-        for (int i = 0; i < bulletCount; i++)
+        for (int i = 0; i < projectiles.Count; i++)
         {
-            bulletPositions[i] += bulletVelocities[i] * DeltaTime;
-            if (CheckScreenBoundary(bulletPositions[i], bulletSize))
+            var projectile = projectiles[i];
+            projectile.position += projectile.velocity * DeltaTime;
+            projectiles[i] = projectile;
+            if (CheckScreenBoundary(projectile.position, projectile.size))
             {
-                RemoveBullet(i);
+                projectiles.RemoveAt(i);
                 i--;
             }
         }
     }
     // Target physics
     {
-        for (int i = 0; i < targetPositions.Length; i++)
+        for (int i = 0; i < targets.Count; i++)
         {
-            var targetPosition = targetPositions[i];
-            var targetVelocity = targetVelocities[i];
-            var targetRadius = targetRadii[i];
-            for (int j = 0; j < bulletCount; j++)
+            var target = targets[i];
+            for (int j = 0; j < projectiles.Count; j++)
             {
-                var bulletPosition = bulletPositions[j];
-                var offset = bulletPosition - targetPosition;
+                var projectile = projectiles[j];
+                var offset = projectile.position - target.position;
                 var distance = length(offset);
-                if (distance < targetRadius + bulletSize.x)
+                // Projectile hit target!
+                if (distance < target.radius + projectile.size)
                 {
-                    targetVelocity += bulletVelocities[j] / (targetRadius * targetRadius * PI) * 500f;
-                    targetColors[i] = WHITE.xyz * 2f;
-                    RemoveBullet(j);
+                    // Knockback force
+                    target.velocity += projectile.velocity / (target.radius * target.radius * PI) * 500f;
+                    // Flash white
+                    target.color = WHITE * 2f;
+                    target.color.w = 1f;
+                    // Delete projectile
+                    projectiles.RemoveAt(j);
                     j--;
                 }
             }
-            HandleScreenBoundary(ref targetPosition, ref targetVelocity, float2(targetRadius), 1f);
-            targetVelocity = lerp(targetVelocity, 0, 1f - exp(-DeltaTime * 5f));
-            targetPosition += targetVelocity * DeltaTime;
-            targetPositions[i] = targetPosition;
-            targetVelocities[i] = targetVelocity;
+            // Targets bounce of screen edges
+            HandleScreenBoundary(ref target.position, ref target.velocity, float2(target.radius), bounciness: 1f);
+            target.velocity = lerp(target.velocity, 0, 1f - exp(-DeltaTime * 5f));
+            target.position += target.velocity * DeltaTime;
+            targets[i] = target;
         }
     }
     // Camera shake
     {
-        for (int i = 0; i < cameraShakeCount; i++)
+        for (int i = 0; i < shakes.Count; i++)
         {
-            var startTime = cameraShakeStartTimes[i];
-            var shakeTime = Time - startTime;
-            var amplitude = smoothstep(0.2f, 0f, shakeTime) * 2f;
-            if (amplitude <= 0f)
+            var startTime = shakes[i].startTime;
+            var elapsedTime = Time - startTime;
+            // Amplitude dies out over 0.2 seconds
+            var amplitude = smoothstep(0.2f, 0f, elapsedTime) * 2f;
+            // Remove shake if amplitude is small enough
+            if (amplitude <= 0.01f)
             {
-                cameraShakeStartTimes[i] = cameraShakeStartTimes[cameraShakeCount - 1];
-                cameraShakeCount--;
+                shakes.RemoveAt(i);
+                i--;
                 continue;
             }
-            ScreenShake(seed: i * 10, time: shakeTime, amplitude: amplitude, frequency: 5f);
+            // Shake the canvas
+            ScreenShake(seed: i * 10, time: elapsedTime, amplitude: amplitude, frequency: 5f);
         }
     }
     // Draw player
-    Rectangle(playerPosition + float2(0, playerSize.y / 2f), playerSize);
-    // Draw bullets
-    Color(float3(1f, 0.5f, 0.1f) * 10f);
-    for (int i = 0; i < bulletCount; i++)
-        Circle(bulletPositions[i], bulletSize.x);
+    Rectangle(player.position + float2(0, player.size.y / 2f), player.size);
+    // Draw projectiles
+    Color(float3(1f, 0.5f, 0.1f) * 10f); // Multiply color by 10 for it to glow
+    for (int i = 0; i < projectiles.Count; i++)
+        Circle(projectiles[i].position, projectiles[i].size);
     // Draw targets
-    for (int i = 0; i < targetPositions.Length; i++)
+    for (int i = 0; i < targets.Count; i++)
     {
-        var position = targetPositions[i];
-        var radius = targetRadii[i];
-        var color = targetColors[i];
-        Color(color);
-        Circle(position, radius);
-        targetColors[i] = lerp(color, RED.xyz, DeltaTime * 5f);
+        var target = targets[i];
+        Color(target.color);
+        Circle(target.position, target.radius);
+        target.color = lerp(target.color, RED, DeltaTime * 5f);
+        targets[i] = target;
     }
-    StrokeWeight(10);
-    LinearGradient(BLACK, WHITE);
 }
+// Machine Gun
 protected override void OnMouseHeld()
 {
     if (!MouseButtonHeld(MouseButton.Left))
@@ -389,9 +388,10 @@ protected override void OnMouseHeld()
     _lastShootTime = Time;
     var bulletSpeed = 10000f;
     var bulletAngle = Random.NextFloat(-2f, 5f);
-    Shoot(bulletSpeed, bulletAngle, out var _, out var direction);
-    playerVelocity -= normalize(direction) * shootKick;
+    Shoot(bulletSpeed, bulletAngle, Random.NextFloat(2, 4), out var _, out var direction);
+    player.velocity -= normalize(direction) * shootKick;
 }
+// Shotgun
 protected override void OnMousePress()
 {
     if (!MouseButtonPressed(MouseButton.Right))
@@ -402,69 +402,51 @@ protected override void OnMousePress()
     {
         var bulletAngle = Random.NextFloat(-10f, 10f);
         var bulletSpeed = Random.NextFloat(10_000f, 15_000);
-        Shoot(bulletSpeed, bulletAngle, out var _, out var direction);
-        playerVelocity -= normalize(direction) * shootKick;
+        Shoot(bulletSpeed, bulletAngle, Random.NextFloat(3, 6), out var _, out var direction);
+        player.velocity -= normalize(direction) * shootKick;
     }
 }
-private void Shoot(float speed, float angle, out float2 position, out float2 direction)
+private void Shoot(float speed, float angle, float size, out float2 position, out float2 direction)
 {
-    if (bulletCount == bulletPositions.Length - 1)
-    {
-        Array.Resize(ref bulletPositions, bulletCount * 2);
-        Array.Resize(ref bulletVelocities, bulletCount * 2);
-        Array.Resize(ref cameraShakeStartTimes, bulletCount * 2);
-    }
-    if (cameraShakeCount == cameraShakeStartTimes.Length - 1)
-        Array.Resize(ref cameraShakeStartTimes, cameraShakeCount * 2);
-    var playerCenter = playerPosition + float2(0f, playerSize.y * 0.5f);
+    var playerCenter = player.position + float2(0f, player.size.y * 0.5f);
     var aimSign = sign(MouseX - playerCenter);
-    var bulletPosition = playerCenter + aimSign * playerSize.x * 0.5f;
-    var bulletDirection = normalize(MousePosition - bulletPosition);
+    var projectilePosition = playerCenter + aimSign * player.size.x * 0.5f;
+    var projectileDirection = normalize(MousePosition - projectilePosition);
+    // Rotate direction based on relative angle
     var angleRadians = radians(angle);
     var cAngle = cos(angleRadians);
     var sAngle = sin(angleRadians);
-    bulletDirection = float2(bulletDirection.x * cAngle - bulletDirection.y * sAngle, bulletDirection.x * sAngle + bulletDirection.y * cAngle);
-    var bulletVelocity = bulletDirection * speed;
-    bulletPositions[bulletCount] = bulletPosition;
-    bulletVelocities[bulletCount] = bulletVelocity;
-    cameraShakeStartTimes[cameraShakeCount] = Time;
-    bulletCount++;
-    cameraShakeCount++;
-    position = bulletPosition;
-    direction = bulletDirection;
-}
-private void RemoveBullet(int index)
-{
-    bulletPositions[index] = bulletPositions[bulletCount - 1];
-    bulletVelocities[index] = bulletVelocities[bulletCount - 1];
-    bulletCount--;
+    projectileDirection = float2(projectileDirection.x * cAngle - projectileDirection.y * sAngle, projectileDirection.x * sAngle + projectileDirection.y * cAngl
+    var projectileVelocity = projectileDirection * speed;
+    // Add new projectile
+    projectiles.Add(new Projectile { position = projectilePosition, velocity = projectileVelocity, size = size });
+    // Add new camera shale
+    shakes.Add(new Shake { startTime = Time });
+    position = projectilePosition;
+    direction = projectileDirection;
 }
 private bool HandleScreenBoundary(ref float2 position, ref float2 velocity, float2 size, float bounciness)
 {
     var hit = false;
     var halfSize = size / 2f;
-    // Bottom
     if (position.y - halfSize.y < 0)
     {
         position.y = halfSize.y;
         velocity.y *= -bounciness;
         hit = true;
     }
-    // Top
     if (position.y + halfSize.y > Height)
     {
         position.y = Height - halfSize.y;
         velocity.y *= -bounciness;
         hit = true;
     }
-    // Left
     if (position.x - halfSize.x < 0f)
     {
         position.x = halfSize.x;
         velocity.x *= -bounciness;
         hit = true;
     }
-    // Right
     if (position.x > Width - halfSize.x)
     {
         position.x = Width - halfSize.x;
@@ -476,18 +458,10 @@ private bool HandleScreenBoundary(ref float2 position, ref float2 velocity, floa
 private bool CheckScreenBoundary(float2 position, float2 size)
 {
     var halfSize = size / 2f;
-    // Bottom
-    if (position.y - halfSize.y < 0)
-        return true;
-    // Top
-    if (position.y + halfSize.y > Height)
-        return true;
-    // Left
-    if (position.x - halfSize.x < 0f)
-        return true;
-    // Right
-    if (position.x > Width - halfSize.x)
-        return true;
+    if (position.y - halfSize.y < 0) return true;
+    if (position.y + halfSize.y > Height) return true;
+    if (position.x - halfSize.x < 0f) return true;
+    if (position.x > Width - halfSize.x) return true;
     return false;
 }
 ```
