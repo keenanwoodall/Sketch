@@ -8,7 +8,7 @@ For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) librar
 ## Cool Stuff
 - Easily add high-quality accumulation motion blur by simply calling `MotionBlur(subFrames)` from `OnStart`
 - Easily record your sketch by calling `StartRecording(mode, quality)` from `OnStart`
-- Easily add screen shake by calling `ScreenShake(seed, elapsedTime, ampl, freq)` from `OnDraw`
+- Easily add screen shake by calling `ScreenShake(seed, time, ampl, freq)` from `OnDraw`
 
 ## Instructions
 - Install [Shapes](https://www.acegikmo.com/shapes/)
