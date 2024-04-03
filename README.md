@@ -1,4 +1,4 @@
-Create Processing-like sketches in Unity.
+Create Processing-like sketches in Unity for URP.
 
 Mostly made for fun and very incomplete!
 
@@ -7,6 +7,7 @@ For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) librar
 
 ## Instructions
 - Install [Shapes](https://www.acegikmo.com/shapes/)
+- Add Shapes' Immediate Mode render feature
 - Add Sketch package via git url `https://github.com/keenanwoodall/Sketch`
 - Create a new script derived from the `Sketch` base class.
 - Override sketch functions like `OnStart` and `OnDraw`.
