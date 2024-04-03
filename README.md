@@ -23,11 +23,6 @@ I recommend poking around the `Sketch` base class to see the various utilities a
 Its goal is to provide (almost) everything you need in a simple API.
 For example, rather than using `UnityEngine.Time.time` you can simply use the `Time` variable.
 
-`Sketch` components are (currently) not the best neighbor since sketches are meant to the the primary "application."
-You can have other stuff happening outside of the sketch if you like, but you may run into issues.
-Sketches high-jack the input system and update it manually to support their custom update loop.
-They run at 60 fps by default, so there will be flickering if you have any cameras in your scene.
-
 
 TODO 🤞
 - Get/Set pixels

@@ -3,7 +3,6 @@
 #endif
 
 using System;
-using System.IO;
 using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.InputSystem;
@@ -25,7 +24,6 @@ public abstract class Sketch : MonoBehaviour
 
     private double _startTime;
     private double _lastDrawTime;
-    private double _minTimeStep;
     private int _subFrames;
     private bool _isSubFrame;
     private float _drawAlpha = 1f;
@@ -39,7 +37,6 @@ public abstract class Sketch : MonoBehaviour
     private ImageRecorderSettings _imageRecorderSettings;
 #endif
     private ShutterProfile _shutterProfile;
-    private InputSettings.UpdateMode _lastUpdateMode;
 
     private Volume _volume;
     private VolumeProfile _volumeProfile;
@@ -54,18 +51,11 @@ public abstract class Sketch : MonoBehaviour
         if (!_targetCamera) 
             return;
         
-        _targetCamera.enabled = false;
+        var currentTime = UnityEngine.Time.timeAsDouble - _startTime;
+        var deltaTime   = currentTime - _lastDrawTime;
 
         using (Draw.Command(_targetCamera))
         {
-            var currentTime = UnityEngine.Time.timeAsDouble - _startTime;
-            var deltaTime   = currentTime - _lastDrawTime;
-
-            if (deltaTime < _minTimeStep)
-                return;
-
-            _targetCamera.enabled   = true;
-
             var cachedSubFrames     = _subFrames;
             var subFrameDeltaTime   = deltaTime / (cachedSubFrames + 1f);
 
@@ -121,7 +111,6 @@ public abstract class Sketch : MonoBehaviour
     {
         _targetCamera               = gameObject.AddComponent<Camera>();
         _targetCamera.cullingMask   = 0;
-        _targetCamera.enabled       = false;
         _targetCamera.orthographic  = true;
         _targetCamera.clearFlags    = CameraClearFlags.Nothing;
         _targetCamera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
@@ -135,9 +124,6 @@ public abstract class Sketch : MonoBehaviour
         var seed = (uint)UnityEngine.Random.Range(0, 4294967295);
         Random = new Unity.Mathematics.Random(seed);
 
-        _lastUpdateMode = InputSystem.settings.updateMode;
-        InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsManually;
-
 #if RECORDING_SUPPORTED
         _recording = false;
         _recorderControllerSettings = ScriptableObject.CreateInstance<RecorderControllerSettings>();
@@ -148,7 +134,7 @@ public abstract class Sketch : MonoBehaviour
 
         InitializeInput();
         InitializeTime();
-        FrameRate(60f);
+        FrameRate(60);
         MotionBlur(0, UniformShutter);
         Bloom(intensity: 0f);
         PrepareDrawing();
@@ -187,8 +173,6 @@ public abstract class Sketch : MonoBehaviour
                     Destroy(_imageRecorderSettings);
 #endif
                 }
-
-                InputSystem.settings.updateMode = _lastUpdateMode;
 
                 _targetCamera   = null;
                 _volume         = null;
@@ -238,8 +222,6 @@ public abstract class Sketch : MonoBehaviour
 
     private void InitializeInput()
     {
-        InputSystem.Update();
-        
         var focused = Application.isFocused;
         if (focused)
         {
@@ -257,8 +239,6 @@ public abstract class Sketch : MonoBehaviour
 
     private void UpdateInput()
     {
-        InputSystem.Update();
-        
         var focused = Application.isFocused;
         if (focused)
         {
@@ -299,8 +279,9 @@ public abstract class Sketch : MonoBehaviour
     [NonSerialized] public float DeltaTime;
     [NonSerialized] public double PreciseDeltaTime;
     [NonSerialized] public int FrameCount;
-    public float FrameRate() => (float)(1d / _minTimeStep);
-    public void FrameRate(float newFrameRate) => _minTimeStep = 1f / newFrameRate;
+    public int FrameRate() => Application.targetFrameRate;
+    public void FrameRate(int newFrameRate) => Application.targetFrameRate = newFrameRate;
+
     public void MotionBlur(int subFrames, ShutterProfile shutterProfile)
     {
         _subFrames = Mathf.Max(0, subFrames);
