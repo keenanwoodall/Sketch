@@ -1,6 +1,6 @@
 Create Processing-like sketches in Unity for URP.
 
-Mostly made for fun and very incomplete!
+Mostly made for myself and very incomplete!
 
 ## ⚠️ Requires Shapes ⚠️
 For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) library for rendering. This is a paid asset.
@@ -8,12 +8,12 @@ For now, this package uses the [Shapes](https://www.acegikmo.com/shapes/) librar
 ## Cool Stuff
 - Easily add high-quality accumulation motion blur by simply calling `MotionBlur(subFrames)` from `OnStart`
 - Easily record your sketch by calling `StartRecording(mode, quality)` from `OnStart`
-- Easily add screen shake by calling `ScreenShake(seed, time, ampl, freq)` from `OnDraw`
+- Easily add screen shake by calling `ScreenShake(seed, time, amp, freq)` from `OnDraw`
 
 ## Instructions
 - Install [Shapes](https://www.acegikmo.com/shapes/)
 - Add Shapes' Immediate Mode render feature
-- Add Sketch package via git url `https://github.com/keenanwoodall/Sketch`
+- Add Sketch package via git url `https://github.com/keenanwoodall/Sketch.git`
 - Create a new script derived from the `Sketch` base class.
 - Override sketch functions like `OnStart` and `OnDraw`.
 - Add script to game-object in a blank scene
