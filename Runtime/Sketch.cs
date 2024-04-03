@@ -104,7 +104,6 @@ public abstract class Sketch : MonoBehaviour
         _targetCamera.enabled       = false;
         _targetCamera.orthographic  = true;
         _targetCamera.clearFlags    = CameraClearFlags.Nothing;
-        _targetCamera.hideFlags     = HideFlags.NotEditable;
         _targetCamera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
 
         _volume                     = gameObject.AddComponent<Volume>();
